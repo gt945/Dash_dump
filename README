@@ -1,0 +1,4 @@
+virtualenv2  venv
+. venv/bin/activate
+pip install -r requirements.txt 
+./Dash_Dump.py url_of_dash_mpd
