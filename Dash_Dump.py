@@ -9,20 +9,34 @@ from urllib2 import urlopen, URLError, HTTPError
 from urlparse import urlparse, urljoin
 import isodate
 import re
+import urllib
+import time
+
+def reporthook(count, block_size, total_size):
+    global start_time
+    if count == 0:
+        start_time = time.time()
+        return
+    block_size = min(block_size, total_size)
+    duration = time.time() - start_time
+    progress_size = int(count * block_size)
+    speed = int(progress_size / (1024 * duration))
+    percent = int(count * block_size * 100 / total_size)
+    sys.stdout.write("\r%3d%%, %8d MB, %6d KB/s, %d seconds passed" %
+                    (percent, progress_size / (1024 * 1024), speed, duration))
+    sys.stdout.flush()
+
 
 def dlfile(local_path, url):
     if os.path.isfile(local_path):
         print "Exist " + url
         return
     try:
+        print "Downloading " + url
         tmp_path = local_path + '.tmp'
-        f = urlopen(url)
-        with open(tmp_path, "wb") as local_file:
-            local_file.write(f.read())
-
-        local_file.close()
+        urllib.urlretrieve(url, tmp_path, reporthook)
+        print "\n"
         os.rename(tmp_path, local_path)
-        print "OK " + url
     except HTTPError, e:
         print "HTTP Error:", e.code, url
     except URLError, e:
@@ -113,7 +127,7 @@ for Period in MPD.findAll('Period'):
             media = urljoin(AdaptationSetBaseURL, SegmentTemplate.attrs['media'])
             SegmentTimeline = AdaptationSet.find('SegmentTimeline')
             if SegmentTimeline:
-                time = 0
+                curTime = 0
                 for s in SegmentTimeline.findAll('S'):
                     r = read_attr(s, 'r', default = 0)
                     d = read_attr(s, 'd', default = duration)
@@ -123,14 +137,14 @@ for Period in MPD.findAll('Period'):
                             representationId = read_attr(Representation, 'id', str)
                             media_path = replace_var(media, 'Bandwidth', bandwidth)
                             media_path = replace_var(media_path, 'RepresentationID', representationId)
-                            media_path = replace_var(media_path, 'Time', time)
+                            media_path = replace_var(media_path, 'Time', curTime)
                             dlsegment(media_path, ManifestBase)
-                        time += d
+                        curTime += d
                         r -= 1
             else:
-                time = 0
+                curTime = 0
                 number = startNumber
-                while time < PeriodDuration * timescale:
+                while curTime < PeriodDuration * timescale:
                     for Representation in AdaptationSet.findAll('Representation'):
                         bandwidth = read_attr(Representation, 'bandwidth')
                         representationId = read_attr(Representation, 'id', str)
@@ -138,7 +152,7 @@ for Period in MPD.findAll('Period'):
                         media_path = replace_var(media_path, 'RepresentationID', representationId)
                         media_path = replace_var(media_path, 'Number', number)
                         dlsegment(media_path, ManifestBase)
-                    time += duration
+                    curTime += duration
                     number += 1
         else:
             for Representation in AdaptationSet.findAll('Representation'):
