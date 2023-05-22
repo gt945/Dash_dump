@@ -1,4 +1,4 @@
 BeautifulSoup4==4.6.0
-requests==2.20.0
+requests==2.31.0
 isodate==0.5.4
 lxml==4.9.1
